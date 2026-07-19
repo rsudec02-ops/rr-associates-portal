@@ -84,28 +84,37 @@ if "Worker" in user_role:
             if not os.path.exists("attendance.csv"):
                 with open("attendance.csv", "w", newline="", encoding="utf-8") as file:
                     writer = csv.writer(file)
-                    writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location"])
+                    writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location","Status"])
 
-            # Interactive button logic
-            if st.button("Mark Shift Clock-In"):
-                if not location_verified:
-                    st.error("Cannot clock in. GPS verification failed.")
-                elif worker_name.strip() == "":
-                    st.error("Please enter a worker name before clocking in.")
-                else:
-                    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    with open("attendance.csv", "a", newline="", encoding="utf-8") as file:
-                        writer = csv.writer(file)
-                        writer.writerow([current_time, worker_name, shift_type, location_tag])
-                    st.success(f"Shift successfully logged for {worker_name} at {current_time}!")
-            if worker_name.strip() == "":
-                st.error("Please enter a worker name before clocking in.")
-            else:
-                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                with open("attendance.csv", "a", newline="", encoding="utf-8") as file:
-                    writer = csv.writer(file)
-                    writer.writerow([current_time, worker_name, shift_type, location_tag])
-                st.success(f"Shift successfully logged for {worker_name} at {current_time}!")
+           # # --- Day 7: Interactive Button Logic & Shift Delay Checker ---
+    if st.button("Mark Shift Clock-In"):
+        if not location_verified:
+            st.error("Cannot clock in. GPS verification failed.")
+        elif worker_name.strip() == "":
+            st.error("Please enter a worker name before clocking in.")
+        else:
+            import datetime
+            current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            current_hour = datetime.datetime.now().hour
+            current_minute = datetime.datetime.now().minute
+            
+            # Smart Delay Check Logic
+            arrival_status = "On Time"
+            if "Day" in shift_type:
+                # If logging in after 08:15 AM
+                if current_hour > 8 or (current_hour == 8 and current_minute > 15):
+                    arrival_status = "Late Arrival"
+            elif "Night" in shift_type:
+                # If logging in after 20:15 (8:15 PM)
+                if current_hour > 20 or (current_hour == 20 and current_minute > 15):
+                    arrival_status = "Late Arrival"
+
+            # Append data to CSV
+            with open("attendance.csv", "a", newline="", encoding="utf-8") as fil:
+                writer = csv.writer(fil)
+                writer.writerow([current_time, worker_name, shift_type, location_tag, arrival_status])
+            
+            st.success(f"✔️ Shift successfully logged for {worker_name} as [{arrival_status}]!")
 elif "Supervisor" in user_role:
     st.header("Supervisor Control Desk")
     st.write("Manage field crews, machinery checkpoints, and site metrics.")
@@ -148,7 +157,20 @@ elif "Supervisor" in user_role:
                 st.info("No shift type data found yet.")
         # --- Live Data Table ---
         st.subheader("📋 Live Attendance Logs")
-        st.dataframe(df, use_container_width=True)
+        if not df.empty:
+            if "Status" in df.columns:
+                # 🎨 This function decides the colors: red for late, green for on time
+                def style_lateness(val):
+                    if val == "Late Arrival":
+                        return "background-color: #f8d7da; color: #721c24;"  # Soft Red
+                    return "background-color: #d4edda; color: #155724;"      # Soft Green
+                
+                # 🖌️ This applies those colors only to our new 'Status' column
+                styled_df = df.style.map(style_lateness, subset=["Status"])
+                st.dataframe(styled_df, use_container_width=True)
+            else:
+                # If 'Status' column doesn't exist yet, just show the normal table
+                st.dataframe(df, use_container_width=True)
     else:
         st.info("No attendance records found yet. Data will appear once workers clock in.")
 elif "Admin" in user_role:
