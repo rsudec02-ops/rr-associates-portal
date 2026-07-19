@@ -1,5 +1,7 @@
 import streamlit as st
-import datetime
+from datetime import datetime
+import csv
+import os
 
 # --- Industrial System Theme UI Customizations ---
 st.set_page_config(page_title="RR Associates Portal", page_icon="🏗️", layout="centered")
@@ -50,23 +52,34 @@ with col_role:
     )
 
 st.divider()
+# --- Worker Input Fields ---
+worker_name = st.text_input("Enter Worker Name / श्रमिक का नाम दर्ज करें")
+shift_type = st.selectbox("Select Shift Type / शिफ्ट का प्रकार", ["Day / दिन", "Night / रात"])
+location_tag = st.selectbox("Select Site Location / साइट का स्थान", ["Wagon Tippler", "Wonder Cement Ltd"])
 
 # =====================================================================
 # SYSTEM PROFILE INTERFACES (Day 1 Shells)
 # =====================================================================
-
-if "Worker" in user_role:
-    if lang == "English":
+if lang == "English":
         st.header("Worker Terminal")
-        st.info("Welcome to your daily shift terminal. Follow safety protocols.")
-        if st.button("⏱️ MARK SHIFT CLOCK-IN"):
-            st.success(f"System Logged Attendance at {datetime.datetime.now().strftime('%H:%M:%S')}")
-    else:
-        st.header("श्रमिक टर्मिनल")
-        st.info("आपके दैनिक शिफ्ट टर्मिनल में आपका स्वागत है। सुरक्षा नियमों का पालन करें।")
-        if st.button("⏱️ उपस्थिति दर्ज करें (क्लॉक इन)"):
-            st.success(f"उपस्थिति दर्ज की गई: {datetime.datetime.now().strftime('%H:%M:%S')}")
+        st.info("Welcome to your daily shift terminal.")
 
+        # Check if the database file exists; if not, create it
+        if not os.path.exists("attendance.csv"):
+            with open("attendance.csv", "w", newline="",encoding="utf-8") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location"])
+
+        # Interactive button logic
+        if st.button("Mark Shift Clock-In"):
+            if worker_name.strip() == "":
+                st.error("Please enter a worker name before clocking in.")
+            else:
+                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with open("attendance.csv", "a", newline="",encoding="utf-8") as file:
+                    writer = csv.writer(file)
+                    writer.writerow([current_time, worker_name, shift_type, location_tag])
+                st.success(f"Shift successfully logged for {worker_name} at {current_time}!")
 elif "Supervisor" in user_role:
     st.header("Supervisor Control Desk")
     st.write("Manage field crews, machinery checkpoints, and alert channels.")
@@ -84,4 +97,5 @@ elif "Admin" in user_role:
         <p><b>Status:</b> System Active</p>
     </div>
     """, unsafe_allow_html=True)
+    
     
