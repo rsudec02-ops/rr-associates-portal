@@ -60,13 +60,14 @@ location_tag = st.selectbox("Select Site Location / साइट का स्�
 # =====================================================================
 # SYSTEM PROFILE INTERFACES (Day 1 Shells)
 # =====================================================================
-if lang == "English":
+if "Worker" in user_role:
+    if lang == "English":
         st.header("Worker Terminal")
         st.info("Welcome to your daily shift terminal.")
 
         # Check if the database file exists; if not, create it
         if not os.path.exists("attendance.csv"):
-            with open("attendance.csv", "w", newline="",encoding="utf-8") as file:
+            with open("attendance.csv", "w", newline="", encoding="utf-8") as file:
                 writer = csv.writer(file)
                 writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location"])
 
@@ -76,17 +77,36 @@ if lang == "English":
                 st.error("Please enter a worker name before clocking in.")
             else:
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                with open("attendance.csv", "a", newline="",encoding="utf-8") as file:
+                with open("attendance.csv", "a", newline="", encoding="utf-8") as file:
                     writer = csv.writer(file)
                     writer.writerow([current_time, worker_name, shift_type, location_tag])
                 st.success(f"Shift successfully logged for {worker_name} at {current_time}!")
 elif "Supervisor" in user_role:
     st.header("Supervisor Control Desk")
-    st.write("Manage field crews, machinery checkpoints, and alert channels.")
-    st.text_input("Enter Active Shift ID", placeholder="e.g., WONDER-SHIFT-A")
-    if st.button("💾 SAVE SHIFT METRICS"):
-        st.success("Log basic details stored safely.")
+    st.write("Manage field crews, machinery checkpoints, and site metrics.")
 
+    
+    if os.path.exists("attendance.csv"):
+        
+        import pandas as pd
+        df = pd.read_csv("attendance.csv", encoding="utf-8")
+
+        # --- Analytics Metrics ---
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(label="Total Logged Shifts", value=len(df))
+        with col2:
+            # Counts unique worker names
+            unique_workers = df["Worker Name"].nunique() if "Worker Name" in df.columns else 0
+            st.metric(label="Unique Personnel on Site", value=unique_workers)
+
+        st.divider()
+
+        # --- Live Data Table ---
+        st.subheader("📋 Live Attendance Logs")
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("No attendance records found yet. Data will appear once workers clock in.")
 elif "Admin" in user_role:
     st.header("Executive Control Command")
     st.write("Operational health dashboard for RR Associates management.")
