@@ -2,6 +2,25 @@ import streamlit as st
 from datetime import datetime
 import csv
 import os
+def compute_shift_duration(clock_in_str: str, clock_out_str: str) -> float:
+    """
+    Computes total active operational duration in hours between two ISO timestamp strings.
+    
+    Parameters:
+        clock_in_str (str): Clock-in timestamp formatted as '%Y-%m-%d %H:%M:%S'
+        clock_out_str (str): Clock-out timestamp formatted as '%Y-%m-%d %H:%M:%S'
+        
+    Returns:
+        float: Calculated shift duration in hours rounded to 2 decimal places. Returns 0.0 on parse error.
+    """
+    try:
+        time_fmt = "%Y-%m-%d %H:%M:%S"
+        t_in = datetime.datetime.strptime(clock_in_str, time_fmt)
+        t_out = datetime.datetime.strptime(clock_out_str, time_fmt)
+        duration_seconds: float = (t_out - t_in).total_seconds()
+        return round(max(0.0, duration_seconds / 3600.0), 2)
+    except (ValueError, TypeError):
+        return 0.0
 
 # --- Industrial System Theme UI Customizations ---
 st.set_page_config(page_title="RR Associates Portal", page_icon="🏗️", layout="centered")
@@ -84,8 +103,7 @@ if "Worker" in user_role:
             if not os.path.exists("attendance.csv"):
                 with open("attendance.csv", "w", newline="", encoding="utf-8") as file:
                     writer = csv.writer(file)
-                    writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location","Status"])
-
+                    writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location", "Status", "Duration (Hrs)"])
            # # --- Day 7: Interactive Button Logic & Shift Delay Checker ---
     if st.button("Mark Shift Clock-In"):
         if not location_verified:
@@ -112,8 +130,7 @@ if "Worker" in user_role:
             # Append data to CSV
             with open("attendance.csv", "a", newline="", encoding="utf-8") as fil:
                 writer = csv.writer(fil)
-                writer.writerow([current_time, worker_name, shift_type, location_tag, arrival_status])
-            
+                writer.writerow([current_time, worker_name, shift_type, location_tag, arrival_status, 0.0])            
             st.success(f"✔️ Shift successfully logged for {worker_name} as [{arrival_status}]!")
 elif "Supervisor" in user_role:
     st.header("Supervisor Control Desk")
@@ -125,15 +142,17 @@ elif "Supervisor" in user_role:
         import pandas as pd
         df = pd.read_csv("attendance.csv", encoding="utf-8")
 
-        # --- Analytics Metrics ---
-        col1, col2 = st.columns(2)
+       # --- Analytics Metrics & Live Benchmarks ---
+        col1, col2, col3 = st.columns(3)
         with col1:
             st.metric(label="Total Logged Shifts", value=len(df))
         with col2:
-            # Counts unique worker names
-            unique_workers = df["Worker Name"].nunique() if "Worker Name" in df.columns else 0
-            st.metric(label="Unique Personnel on Site", value=unique_workers)
-
+            late_count: int = len(df[df["Status"] == "Late Arrival"]) if "Status" in df.columns else 0
+            st.metric(label="Anomalous Delay Flags", value=late_count, delta=f"{late_count} Delays", delta_color="inverse")
+        with col3:
+            avg_duration: float = round(df["Duration (Hrs)"].mean(), 2) if "Duration (Hrs)" in df.columns and not df.empty else 0.0
+            st.metric(label="Mean Shift Duration", value=f"{avg_duration} Hrs")
+        
         st.divider()
 
         # --- Live Shift Charts Panel ---
