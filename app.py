@@ -103,7 +103,7 @@ if "Worker" in user_role:
             if not os.path.exists("attendance.csv"):
                 with open("attendance.csv", "w", newline="", encoding="utf-8") as file:
                     writer = csv.writer(file)
-                    writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location", "Status", "Duration (Hrs)"])
+                    writer.writerow(["Timestamp", "Worker Name", "Shift Type", "Location", "Status", "Duration (Hrs)", "Verification"])
            # # --- Day 7: Interactive Button Logic & Shift Delay Checker ---
     if st.button("Mark Shift Clock-In"):
         if not location_verified:
@@ -130,7 +130,7 @@ if "Worker" in user_role:
             # Append data to CSV
             with open("attendance.csv", "a", newline="", encoding="utf-8") as fil:
                 writer = csv.writer(fil)
-                writer.writerow([current_time, worker_name, shift_type, location_tag, arrival_status, 0.0])            
+                writer.writerow([current_time, worker_name, shift_type, location_tag, arrival_status, 0.0, "Pending"])
             st.success(f"✔️ Shift successfully logged for {worker_name} as [{arrival_status}]!")
 elif "Supervisor" in user_role:
     st.header("Supervisor Control Desk")
@@ -153,6 +153,33 @@ elif "Supervisor" in user_role:
             avg_duration: float = round(df["Duration (Hrs)"].mean(), 2) if "Duration (Hrs)" in df.columns and not df.empty else 0.0
             st.metric(label="Mean Shift Duration", value=f"{avg_duration} Hrs")
         
+        st.divider()
+        # --- Day 9: Administrative Action Queue & Approval Module ---
+        st.subheader("🛡️ Record Verification & Audit Queue")
+        
+        if "Verification" in df.columns:
+            pending_df = df[df["Verification"] == "Pending"]
+            
+            if not pending_df.empty:
+                st.warning(f"⚠️ Action Required: {len(pending_df)} transaction(s) pending supervisor certification.")
+                
+                # Select pending record by index or worker name
+                selected_worker = st.selectbox(
+                    "Select Employee Record to Audit:", 
+                    pending_df["Worker Name"].unique()
+                )
+                
+                if st.button("Certify & Approve Selected Record"):
+                    # Mutate state in DataFrame and write back to persistent store
+                    df.loc[df["Worker Name"] == selected_worker, "Verification"] = "Verified Secure"
+                    df.to_csv("attendance.csv", index=False)
+                    st.success(f"✅ Record Certified: Operational log for [{selected_worker}] marked as Verified Secure.")
+                    st.rerun()
+            else:
+                st.success("🟢 Security Audit Clear: All logged operational records have been verified.")
+        else:
+            st.info("ℹ️ Schema Notice: Verification column pending initialization on next clock-in.")
+            
         st.divider()
 
         # --- Live Shift Charts Panel ---
