@@ -131,7 +131,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # --- Day 12: Relational SQLite Database Engine (RR Associate ERP) ---
 def init_db():
-    """Creates the relational attendance schema if it does not exist."""
+    """Creates the relational attendance schema with GIS telemetry columns."""
     conn = sqlite3.connect("attendance.db")
     cursor = conn.cursor()
     cursor.execute("""
@@ -143,14 +143,14 @@ def init_db():
             location TEXT NOT NULL,
             status TEXT NOT NULL,
             duration REAL DEFAULT 0.0,
-            verification TEXT DEFAULT 'Pending'
+            verification TEXT DEFAULT 'Pending',
+            lat REAL DEFAULT 28.0588,
+            lon REAL DEFAULT 77.9469
         )
     """)
     conn.commit()
     conn.close()
 
-# Auto-initialize SQLite database engine on load
-init_db()
 # Auto-initialize SQLite database engine on load
 init_db()
 # --- Corporate Header Banner with Logo & Watermark Support ---
@@ -298,17 +298,17 @@ if "Worker" in user_role:
                         arrival_status = "Late Arrival"
                     
                     # Commit record directly to SQLite database
+                    # Commit record with GIS telemetry directly to SQLite database
                     conn = sqlite3.connect("attendance.db")
                     cursor = conn.cursor()
                     cursor.execute("""
-                        INSERT INTO attendance (timestamp, worker_name, shift_type, location, status, duration, verification)
-                        VALUES (?, ?, ?, ?, ?, 0.0, 'Pending')
-                    """, (current_time, worker_name, shift_type, location_tag, arrival_status))
+                        INSERT INTO attendance (timestamp, worker_name, shift_type, location, status, duration, verification, lat, lon)
+                        VALUES (?, ?, ?, ?, ?, 0.0, 'Pending', ?, ?)
+                    """, (current_time, worker_name, shift_type, location_tag, arrival_status, gps_lat, gps_lon))
                     conn.commit()
                     conn.close()
 
-                    st.success(f"✅ Transaction Authenticated | Employee: {worker_name} | Status: [{arrival_status}] | Telemetry Committed.")
-
+                    st.success(f"✅ Transaction Authenticated | Employee: {worker_name} | Status: [{arrival_status}] | GPS Tagged.")
 elif "Supervisor" in user_role:
     # --- Supervisor Control Desk ---
     st.header("Supervisor Control Desk")
@@ -385,6 +385,19 @@ elif "Admin" in user_role:
         st.markdown("---")
         st.markdown("### 📋 Master Database Overview")
         st.dataframe(df_admin, use_container_width=True)
+
+        # ==========================================
+        # PASTE STEP 3 GIS MAP MODULE RIGHT HERE:
+        # ==========================================
+        st.markdown("---")
+        st.markdown("### 🗺️ Live GIS Satellite Tracking & Geofence Map")
+        st.write("Visualizing active workforce check-in coordinates around the Wonder Cement Aligarh Facility.")
+        
+        if "lat" in df_admin.columns and "lon" in df_admin.columns:
+            st.map(df_admin, latitude="lat", longitude="lon", zoom=12, use_container_width=True)
+        else:
+            st.info("GIS coordinate columns pending synchronization.")
+        # ==========================================
 
         # --- CSV Data Exporter ---
         st.markdown("---")
