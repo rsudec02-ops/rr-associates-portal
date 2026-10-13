@@ -241,12 +241,28 @@ st.caption("Industrial Operations System • Wonder Cement Sites")
 col_lang, col_role = st.columns([1, 2])
 with col_lang:
     lang = st.radio("Language / भाषा", ["English", "हिन्दी"])
-
 with col_role:
     user_role = st.selectbox(
-        "Select Profile / प्रोफ़ाइल चुनें",
-        ["👷 Worker / श्रमिक", "📋 Supervisor / पर्यवेक्षक", "🔑 Admin (Me) / एडमिन"]
+        "Select Profile / प्रोफाइल चुनें",
+        ["👤 Worker / श्रमिक", "👔 Supervisor / पर्यवेक्षक", "🔑 Admin (Me) / एडमिन"]
     )
+
+# --- Secure Role Authentication Gate ---
+authenticated = True  # Default for workers
+
+if "Supervisor" in user_role:
+    sup_pin = st.sidebar.text_input("Enter Supervisor PIN:", type="password")
+    if sup_pin != "RRSuper2026":
+        authenticated = False
+        st.sidebar.error("❌ Invalid Supervisor PIN")
+        st.warning("⚠️ Please enter the authorized Supervisor PIN in the sidebar to access the Control Desk.")
+
+elif "Admin" in user_role:
+    admin_pin = st.sidebar.text_input("Enter Admin Master Key:", type="password")
+    if admin_pin != "RRAdmin2026!":
+        authenticated = False
+        st.sidebar.error("❌ Access Denied: Invalid Master Key")
+        st.warning("🔒 **RESTRICTED AREA:** Enter the secure Admin Master Key in the sidebar to view executive operations and analytics.")
 # Place this near the top under your role/language selectors
 system_status = st.sidebar.toggle("Portal Active (Allow Worker Clock-ins)", value=True)
 st.divider()
@@ -310,6 +326,9 @@ if "Worker" in user_role:
 
                     st.success(f"✅ Transaction Authenticated | Employee: {worker_name} | Status: [{arrival_status}] | GPS Tagged.")
 elif "Supervisor" in user_role:
+    if authenticated:
+        st.header("Supervisor Control Desk")
+        st.write("Manage field crews, machinery checkpoints, and site metrics.")
     # --- Supervisor Control Desk ---
     st.header("Supervisor Control Desk")
     st.write("Manage field crews, machinery checkpoints, and site metrics.")
@@ -357,10 +376,9 @@ elif "Supervisor" in user_role:
             st.success("🎉 All operational records are fully audited and certified!")
 
 elif "Admin" in user_role:
-    # --- Admin Operations & Analytics Portal ---
-    st.header("🏢 Admin Operations & Analytics Portal")
-    st.write("Executive summary, site metrics, and data export control.")
-
+    if authenticated:
+        st.header("🏢 Admin Operations & Analytics Portal")
+        st.write("Executive summary, site metrics, and data export control.")
     conn = sqlite3.connect("attendance.db")
     df_admin = pd.read_sql_query("SELECT * FROM attendance ORDER BY id DESC", conn)
     conn.close()
