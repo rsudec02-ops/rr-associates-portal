@@ -416,6 +416,28 @@ elif "Admin" in user_role:
         else:
             st.info("GIS coordinate columns pending synchronization.")
         # ==========================================
+        # --- Advanced Shift Analytics & Visual Trends ---
+        st.markdown("---")
+        st.markdown("### 📊 Advanced Workforce Analytics & Performance Trends")
+        st.write("Visualizing real-time attendance behavior, punctuality, and shift distribution.")
+
+        if not df_admin.empty and "status" in df_admin.columns:
+            col_chart1, col_chart2 = st.columns(2)
+
+            with col_chart1:
+                st.markdown("#### 🕒 Punctuality Breakdown (On-Time vs. Late)")
+                status_counts = df_admin["status"].value_counts()
+                st.bar_chart(status_counts)
+
+            with col_chart2:
+                st.markdown("#### 🔄 Shift Type Distribution")
+                if "shift_type" in df_admin.columns:
+                    shift_counts = df_admin["shift_type"].value_counts()
+                    st.bar_chart(shift_counts)
+                else:
+                    st.info("Shift type telemetry data unavailable.")
+        else:
+            st.info("Insufficient data to render telemetry analytics charts.")
 
         # --- CSV Data Exporter ---
         st.markdown("---")
