@@ -131,23 +131,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # --- Day 12: Relational SQLite Database Engine (RR Associate ERP) ---
 def init_db():
-    """Creates the relational attendance schema with GIS telemetry columns."""
     conn = sqlite3.connect("attendance.db")
     cursor = conn.cursor()
+    # Attendance table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            worker_name TEXT NOT NULL,
-            shift_type TEXT NOT NULL,
-            location TEXT NOT NULL,
-            status TEXT NOT NULL,
-            duration REAL DEFAULT 0.0,
-            verification TEXT DEFAULT 'Pending',
-            lat REAL DEFAULT 28.0588,
-            lon REAL DEFAULT 77.9469
+            timestamp TEXT,
+            worker_name TEXT,
+            shift_type TEXT,
+            location TEXT,
+            status TEXT,
+            duration REAL,
+            verification TEXT,
+            lat REAL,
+            lon REAL
         )
     """)
+    # Day 17: User Credentials Table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT,
+            role TEXT
+        )
+    """)
+    # Seed default supervisor if table is empty
+    cursor.execute("SELECT COUNT(*) FROM users")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
+                       ("supervisor1", "RRSuper2026", "Supervisor"))
     conn.commit()
     conn.close()
 
@@ -326,6 +340,24 @@ if "Worker" in user_role:
 
                     st.success(f"✅ Transaction Authenticated | Employee: {worker_name} | Status: [{arrival_status}] | GPS Tagged.")
 elif "Supervisor" in user_role:
+    st.sidebar.markdown("### 🔑 Supervisor Authentication")
+    sup_user = st.sidebar.text_input("Supervisor Username", key="sup_u")
+    sup_pin = st.sidebar.text_input("Supervisor Password/PIN", type="password", key="sup_p")
+    authenticated = False
+    if sup_user and sup_pin:
+        conn = sqlite3.connect("attendance.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username=? AND password=? AND role='Supervisor'", (sup_user, sup_pin))
+        user_match = cursor.fetchone()
+        conn.close()
+        if user_match:
+            authenticated = True
+            st.sidebar.success(f"Welcome, {sup_user}!")
+        else:
+            st.sidebar.error("❌ Invalid Credentials")
+            st.warning("⚠️ Enter valid supervisor credentials in the sidebar.")
+    else:
+        st.warning("⚠️ Please log in via the sidebar to access the Supervisor Desk.")
     if authenticated:
         st.header("Supervisor Control Desk")
         st.write("Manage field crews, machinery checkpoints, and site metrics.")
@@ -344,7 +376,6 @@ elif "Supervisor" in user_role:
         st.dataframe(df, use_container_width=True)
         st.markdown("---")
         st.markdown("#### ⚙️ Execute Audit Certification")
-        
         pending_records = df[df["verification"] == "Pending"]
         
         if not pending_records.empty:
@@ -438,6 +469,37 @@ elif "Admin" in user_role:
                     st.info("Shift type telemetry data unavailable.")
         else:
             st.info("Insufficient data to render telemetry analytics charts.")
+            # --- Day 17: User Credential Management ---
+        st.markdown("---")
+        st.markdown("### 🔐 Supervisor Credential Management Desk")
+        st.write("Provision new access keys or manage authorized site supervisors.")
+
+        col_u1, col_u2 = st.columns([1, 1])
+
+        with col_u1:
+            st.markdown("#### ➕ Add New Supervisor")
+            new_user = st.text_input("New Supervisor Username", key="new_u")
+            new_pass = st.text_input("New Supervisor Password/PIN", type="password", key="new_p")
+            if st.button("Create Access Key"):
+                if new_user and new_pass:
+                    try:
+                        conn = sqlite3.connect("attendance.db")
+                        cursor = conn.cursor()
+                        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, 'Supervisor')", (new_user, new_pass))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"✅ Created supervisor account for **{new_user}**!")
+                    except sqlite3.IntegrityError:
+                        st.error("❌ Username already exists!")
+                else:
+                    st.warning("Please fill in both username and password.")
+
+        with col_u2:
+            st.markdown("#### 📋 Active Supervisor Accounts")
+            conn = sqlite3.connect("attendance.db")
+            df_users = pd.read_sql_query("SELECT id, username, role FROM users", conn)
+            conn.close()
+            st.dataframe(df_users, use_container_width=True)
 
         # --- CSV Data Exporter ---
         st.markdown("---")
